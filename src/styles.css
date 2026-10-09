@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "PingFang HK", "Noto Sans TC", "Microsoft JhengHei", "WenQuanYi Zen Hei", sans-serif;
+  --color-ink: #2a2218;
+  --color-cream: #fff6dc;
+  --color-paper: #f4e6bf;
+  --color-soup: #d64545;
+  --color-moss: #3f7a4c;
+  --shadow-stamp: 3px 3px 0 0 #2a2218;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  input,
+  button {
+    font-family: inherit;
+  }
+  input[type="range"] {
+    accent-color: var(--color-soup);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+}
+
+.soup-pin,
+.soup-cluster {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 2px solid var(--color-ink);
+  box-shadow: 2px 2px 0 var(--color-ink);
+  line-height: 1;
+}
+.soup-pin {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.soup-pin.is-many,
+.soup-cluster.is-many {
+  background: var(--color-moss);
+}
+.soup-pin.is-few,
+.soup-cluster.is-few {
+  background: var(--color-soup);
+}
+.soup-pin.is-many {
+  width: 1.375rem;
+  height: 1.375rem;
+}
+.soup-pin.is-draft {
+  width: 1.35rem;
+  height: 1.35rem;
+  background: transparent;
+  box-shadow: none;
+  cursor: grab;
+  outline: 3px solid var(--color-ink);
+  outline-offset: 3px;
+}
+.soup-pin.is-draft::after {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--color-ink);
+}
+.soup-cluster {
+  min-width: 1.85rem;
+  height: 1.85rem;
+  padding: 0 0.35rem;
+  color: var(--color-cream);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.soup-popup .maplibregl-popup-content {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  border: 2px solid var(--color-ink);
+  border-radius: 12px;
+  box-shadow: var(--shadow-stamp);
+  padding: 8px 10px;
+  font-family: var(--font-sans);
+}
+.soup-popup .maplibregl-popup-tip {
+  border-top-color: var(--color-ink);
+}
