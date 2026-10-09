@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DeskRouteImport } from './routes/desk'
+import { Route as ApiReportsRouteImport } from './routes/api/reports'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const DeskRoute = DeskRouteImport.update({
   path: '/desk',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReportsRoute = ApiReportsRouteImport.update({
+  id: '/api/reports',
+  path: '/api/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/desk': typeof DeskRoute
+  '/api/reports': typeof ApiReportsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/desk': typeof DeskRoute
+  '/api/reports': typeof ApiReportsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/desk': typeof DeskRoute
+  '/api/reports': typeof ApiReportsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/desk'
+  fullPaths: '/' | '/desk' | '/api/reports'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/desk'
-  id: '__root__' | '/' | '/desk'
+  to: '/' | '/desk' | '/api/reports'
+  id: '__root__' | '/' | '/desk' | '/api/reports'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DeskRoute: typeof DeskRoute
+  ApiReportsRoute: typeof ApiReportsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeskRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/reports': {
+      id: '/api/reports'
+      path: '/api/reports'
+      fullPath: '/api/reports'
+      preLoaderRoute: typeof ApiReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DeskRoute: DeskRoute,
+  ApiReportsRoute: ApiReportsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

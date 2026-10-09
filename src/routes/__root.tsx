@@ -11,7 +11,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: APP_NAME },
-      { name: "description", content: "香港超市金寶湯現場報料。綠點係好多，紅點係好少。" },
+      { name: "description", content: "香港超市金寶湯現場報料。綠點係好多，黃點係好少，紅點係冇晒。" },
       { name: "theme-color", content: "#fff6dc" },
     ],
     links: [

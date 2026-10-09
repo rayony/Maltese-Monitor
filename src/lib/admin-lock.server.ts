@@ -2,6 +2,7 @@ import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { getCookie, getRequest, setCookie } from "@tanstack/react-start/server";
 import { getSql } from "@/lib/db";
+import { asQty, clipNote } from "@/lib/soup";
 
 const scryptAsync = promisify(scrypt);
 const COOKIE = "soup_desk";
@@ -166,7 +167,9 @@ export type DeskRow = {
   brand: string;
   name: string;
   qty: string;
+  note: string;
   at: string;
+  filedAt: string;
   hidden: boolean;
 };
 
@@ -178,21 +181,25 @@ export async function listDesk(): Promise<DeskRow[]> {
     brand: string;
     name: string;
     qty: string;
+    note: string | null;
     at: string | Date;
+    filed_at: string | Date | null;
     hidden_at: string | Date | null;
   }>`
-    select id, brand, shop_name as name, qty, reported_at as at, hidden_at
+    select id, brand, shop_name as name, qty, note, reported_at as at, created_at as filed_at, hidden_at
     from soup_reports
     where reported_at >= now() - interval '7 days'
-    order by reported_at desc
+    order by reported_at desc, created_at desc
     limit 200
   `;
   return rows.map((row) => ({
     id: String(row.id),
     brand: String(row.brand),
     name: String(row.name),
-    qty: row.qty === "好少" || row.qty === "少量" ? "好少" : "好多",
+    qty: asQty(row.qty) || "好多",
+    note: clipNote(String(row.note ?? "")).trim(),
     at: row.at instanceof Date ? row.at.toISOString() : String(row.at),
+    filedAt: row.filed_at instanceof Date ? row.filed_at.toISOString() : String(row.filed_at ?? row.at),
     hidden: Boolean(row.hidden_at),
   }));
 }
@@ -205,6 +212,24 @@ export async function setHidden(id: string, hidden: boolean) {
     update soup_reports
     set hidden_at = ${hidden ? new Date().toISOString() : null}
     where id = ${id}
+    returning id
+  `;
+  if (!rows[0]) throw new Error("搵唔到呢條");
+}
+
+export async function updateReport(input: { id: string; qty: string; note: string; at: string }) {
+  await requireSession();
+  if (!/^[0-9a-f-]{36}$/i.test(input.id)) throw new Error("搵唔到呢條");
+  const qty = asQty(input.qty);
+  if (!qty) throw new Error("請揀數量");
+  const note = clipNote(input.note).trim();
+  const at = new Date(input.at);
+  if (Number.isNaN(at.getTime())) throw new Error("請填時間");
+  const sql = await getSql();
+  const rows = await sql<{ id: string }>`
+    update soup_reports
+    set qty = ${qty}, note = ${note}, reported_at = ${at.toISOString()}
+    where id = ${input.id}
     returning id
   `;
   if (!rows[0]) throw new Error("搵唔到呢條");

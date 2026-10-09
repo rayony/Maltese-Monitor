@@ -3,7 +3,7 @@ import { RefreshCw } from "lucide-react";
 import { HkMap } from "@/components/hk-map";
 import { SHOPS } from "@/data/shops";
 import { listReports, submitReport } from "@/lib/reports.functions";
-import { GROUPS, formatWhen, groupForBrand, inferBrand, placeKey, rangeLabel, type GroupId, type Qty, type SoupPin, type SoupReport } from "@/lib/soup";
+import { GROUPS, RANGE_STOPS, clipNote, formatWhen, groupForBrand, inferBrand, placeKey, qtyChipClass, rangeLabel, type GroupId, type Qty, type SoupPin, type SoupReport } from "@/lib/soup";
 
 type Picked = { brand: string; name: string; address: string; lat: number; lng: number; fromList: boolean };
 type Focus = { lat: number; lng: number; token: number };
@@ -29,15 +29,20 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
   const [reports, setReports] = useState(initialReports);
   const [groupId, setGroupId] = useState<GroupId>("park");
   const [qty, setQty] = useState<Qty>("好多");
+  const [note, setNote] = useState("");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<Picked | null>(null);
   const [when, setWhen] = useState("");
-  const [hours, setHours] = useState(24);
+  const [minutes, setMinutes] = useState(1440);
+  const [shown, setShown] = useState<Record<Qty, boolean>>({ 好多: true, 好少: true, 冇晒: true });
+  const [mapGroups, setMapGroups] = useState<Record<GroupId, boolean>>({ park: true, well: true, other: true });
+  const [cluster, setCluster] = useState(true);
   const [status, setStatus] = useState("揀舖，再撳地圖或者拖粒空心釘。");
   const [pending, setPending] = useState(false);
   const [focus, setFocus] = useState<Focus | null>(null);
   const box = useRef<HTMLDivElement>(null);
+  const mapFrame = useRef<HTMLElement>(null);
   const group = GROUPS.find((item) => item.id === groupId) ?? GROUPS[0];
 
   useEffect(() => {
@@ -74,9 +79,11 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
   }, [group, query]);
 
   const visible = useMemo(() => {
-    const cut = Date.now() - hours * 3600 * 1000;
-    return reports.filter((row) => new Date(row.at).getTime() >= cut).sort((a, b) => b.at.localeCompare(a.at));
-  }, [reports, hours]);
+    const cut = Date.now() - minutes * 60 * 1000;
+    return reports
+      .filter((row) => new Date(row.at).getTime() >= cut && mapGroups[groupForBrand(row.brand).id])
+      .sort((a, b) => b.at.localeCompare(a.at) || b.filedAt.localeCompare(a.filedAt));
+  }, [reports, minutes, mapGroups]);
 
   const pins = useMemo(() => {
     const groups = new Map<string, SoupReport[]>();
@@ -99,11 +106,16 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
         name: latest.name,
         address: latest.address,
         qty: latest.qty,
-        history: top.map((row) => ({ at: formatWhen(row.at), qty: row.qty })),
+        history: top.map((row) => ({ at: formatWhen(row.at), filedAt: formatWhen(row.filedAt), qty: row.qty, note: row.note })),
       });
     }
-    return next;
-  }, [visible]);
+    return next.filter((pin) => shown[pin.qty]);
+  }, [visible, shown]);
+
+  function jumpTo(row: SoupReport) {
+    setFocus({ lat: row.lat, lng: row.lng, token: Date.now() });
+    mapFrame.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
 
   function chooseGroup(next: GroupId) {
     setGroupId(next);
@@ -175,10 +187,12 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
           lat: picked.lat,
           lng: picked.lng,
           qty,
+          note,
           at: new Date(when).toISOString(),
         },
       });
       setReports(await listReports());
+      setNote("");
       setFocus({ lat: picked.lat, lng: picked.lng, token: Date.now() });
       setStatus("已記錄。每個舖只留最新 5 條。");
     } catch (error) {
@@ -190,24 +204,25 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
 
   return (
     <div className="min-h-dvh bg-cream text-ink lg:flex lg:h-dvh lg:flex-col">
-      <header className="border-b-2 border-ink bg-paper">
+      <header className="flex justify-center border-b-2 border-ink bg-paper">
         <h1 className="sr-only">金寶湯糾察</h1>
-        <img src="/og.jpg" alt="金寶湯糾察" className="h-28 w-full object-cover object-center sm:h-36" />
+        <img src="/og.jpg" alt="金寶湯糾察" className="block h-auto max-h-[42vh] w-auto max-w-full" />
       </header>
       <div className="flex items-center gap-3 px-4 py-2">
         <label htmlFor="range" className="shrink-0 text-sm font-bold">
-          範圍 {rangeLabel(hours)}
+          範圍 {rangeLabel(minutes)}
         </label>
         <input
           id="range"
           type="range"
-          min={1}
-          max={168}
-          value={hours}
+          min={0}
+          max={RANGE_STOPS.length - 1}
+          step={1}
+          value={Math.max(0, RANGE_STOPS.indexOf(minutes as (typeof RANGE_STOPS)[number]))}
           className="min-w-0 flex-1"
-          onChange={(event) => setHours(Number(event.target.value))}
+          onChange={(event) => setMinutes(RANGE_STOPS[Number(event.target.value)] ?? 1440)}
         />
-        <span className="hidden text-xs text-ink/70 sm:inline">1 小時 – 7 日</span>
+        <span className="hidden text-xs text-ink/70 sm:inline">10 分鐘 – 7 日</span>
         <button type="button" className="grid size-11 shrink-0 place-items-center rounded-full border-2 border-ink bg-paper" onClick={() => void refresh()} aria-label="重新載入">
           <RefreshCw className="size-4" />
         </button>
@@ -219,6 +234,47 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
         >
           GitHub
         </a>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 px-4 pb-2">
+        {(
+          [
+            ["park", "百佳"],
+            ["well", "惠康"],
+            ["other", "其他"],
+          ] as const
+        ).map(([id, label]) => (
+          <label key={id} className="inline-flex min-h-11 items-center gap-1.5 rounded-full border-2 border-ink bg-paper px-3 text-sm font-bold">
+            <input
+              type="checkbox"
+              className="size-4 accent-ink"
+              checked={mapGroups[id]}
+              onChange={() => setMapGroups((current) => ({ ...current, [id]: !current[id] }))}
+            />
+            {label}
+          </label>
+        ))}
+        {(
+          [
+            ["好多", "多貨", "bg-moss"],
+            ["好少", "少量", "bg-yolk"],
+            ["冇晒", "無貨", "bg-soup"],
+          ] as const
+        ).map(([qty, label, dot]) => (
+          <label key={qty} className="inline-flex min-h-11 items-center gap-1.5 rounded-full border-2 border-ink bg-cream px-3 text-sm font-bold">
+            <input
+              type="checkbox"
+              className="size-4 accent-ink"
+              checked={shown[qty]}
+              onChange={() => setShown((current) => ({ ...current, [qty]: !current[qty] }))}
+            />
+            <span className={`size-2.5 rounded-full ${dot}`} />
+            {label}
+          </label>
+        ))}
+        <label className="inline-flex min-h-11 items-center gap-1.5 rounded-full border-2 border-ink bg-paper px-3 text-sm font-bold">
+          <input type="checkbox" className="size-4 accent-ink" checked={cluster} onChange={() => setCluster((current) => !current)} />
+          {cluster ? "合併附近釘" : "每點獨立"}
+        </label>
       </div>
       <div className="flex flex-col gap-3 px-3 pb-6 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(300px,400px)_1fr]">
         <section className="order-2 rounded-2xl border-2 border-ink bg-cream p-4 shadow-stamp lg:order-1 lg:overflow-y-auto">
@@ -277,7 +333,7 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
           <p className="mt-2 text-sm text-ink/75">{status}</p>
 
           <label htmlFor="when" className="mt-4 block text-sm font-bold">
-            時間
+            目擊時間
           </label>
           <div className="mt-2 flex gap-2">
             <input
@@ -305,12 +361,32 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
             <button
               type="button"
               aria-pressed={qty === "好少"}
-              className={`min-h-11 flex-1 rounded-xl border-2 border-ink text-sm font-bold ${qty === "好少" ? "bg-soup text-cream" : "bg-cream"}`}
+              className={`min-h-11 flex-1 rounded-xl border-2 border-ink text-sm font-bold ${qty === "好少" ? "bg-yolk text-ink" : "bg-cream"}`}
               onClick={() => setQty("好少")}
             >
               好少
             </button>
+            <button
+              type="button"
+              aria-pressed={qty === "冇晒"}
+              className={`min-h-11 flex-1 rounded-xl border-2 border-ink text-sm font-bold ${qty === "冇晒" ? "bg-soup text-cream" : "bg-cream"}`}
+              onClick={() => setQty("冇晒")}
+            >
+              冇晒
+            </button>
           </div>
+          <label htmlFor="note" className="mt-4 flex items-baseline justify-between text-sm font-bold">
+            留言
+            <span className="font-normal text-ink/60">{[...note].length}/50</span>
+          </label>
+          <input
+            id="note"
+            value={note}
+            maxLength={50}
+            placeholder="可講幾多件，或其他（可留空）"
+            onChange={(event) => setNote(clipNote(event.target.value))}
+            className="mt-2 min-h-11 w-full rounded-xl border-2 border-ink bg-cream px-3 text-base"
+          />
           <button
             type="button"
             disabled={pending}
@@ -322,31 +398,34 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
           <p className="mt-2 text-xs leading-relaxed text-ink/70">公開報料，唔使登入。每個舖只留最新 5 條。位置靠你自己撳地圖或者拖粒釘。</p>
 
           <ul className="mt-4 space-y-2 border-t-2 border-dashed border-ink pt-3">
-              {visible.slice(0, 30).map((row) => (
+              {visible.filter((row) => shown[row.qty]).slice(0, 30).map((row) => (
                 <li key={row.id}>
                   <button
                     type="button"
                     className="w-full rounded-xl border-2 border-ink bg-paper px-3 py-2 text-left text-sm"
-                    onClick={() => setFocus({ lat: row.lat, lng: row.lng, token: Date.now() })}
+                    onClick={() => jumpTo(row)}
                   >
-                    <span className={`mr-2 inline-block rounded-full px-2 py-0.5 text-xs text-cream ${row.qty === "好多" ? "bg-moss" : "bg-soup"}`}>
+                    <span className={`mr-2 inline-block rounded-full px-2 py-0.5 text-xs ${qtyChipClass(row.qty)}`}>
                       {row.qty}
                     </span>
                     {row.brand} {row.name}
-                    <span className="mt-1 block text-ink/70">{formatWhen(row.at)}</span>
+                    {row.note ? <span className="mt-1 block">{row.note}</span> : null}
+                    <span className="mt-1 block text-ink/70">目擊 {formatWhen(row.at)} · 報料 {formatWhen(row.filedAt)}</span>
                   </button>
                 </li>
               ))}
-              {!visible.length ? <li className="rounded-xl border-2 border-ink bg-paper px-3 py-3 text-sm">呢段時間未有報料</li> : null}
+              {!visible.filter((row) => shown[row.qty]).length ? <li className="rounded-xl border-2 border-ink bg-paper px-3 py-3 text-sm">呢個篩選未有報料</li> : null}
             </ul>
         </section>
-        <section className="relative order-1 h-96 overflow-hidden rounded-2xl border-2 border-ink shadow-stamp lg:order-2 lg:h-full lg:min-h-0">
-          <HkMap pins={pins} focus={focus} draft={picked} onPick={pinAt} />
+        <section ref={mapFrame} className="relative order-1 h-96 overflow-hidden rounded-2xl border-2 border-ink shadow-stamp lg:order-2 lg:h-full lg:min-h-0">
+          <HkMap pins={pins} focus={focus} draft={picked} onPick={pinAt} cluster={cluster} />
           <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-xl border-2 border-ink bg-cream px-3 py-2 text-xs shadow-stamp">
             <span className="mr-1 inline-block size-2.5 rounded-full bg-moss" />
             好多
-            <span className="mr-1 ml-3 inline-block size-2.5 rounded-full bg-soup" />
+            <span className="mr-1 ml-3 inline-block size-2.5 rounded-full bg-yolk" />
             好少
+            <span className="mr-1 ml-3 inline-block size-2.5 rounded-full bg-soup" />
+            冇晒
             <div className="mt-1 text-ink/70">地圖：地政總署</div>
           </div>
         </section>

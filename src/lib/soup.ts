@@ -5,7 +5,7 @@ export const GROUPS = [
 ] as const;
 
 export type GroupId = (typeof GROUPS)[number]["id"];
-export type Qty = "好多" | "好少";
+export type Qty = "好多" | "好少" | "冇晒";
 
 export type SoupReport = {
   id: string;
@@ -15,7 +15,9 @@ export type SoupReport = {
   lat: number;
   lng: number;
   qty: Qty;
+  note: string;
   at: string;
+  filedAt: string;
 };
 
 export type SoupPin = {
@@ -26,8 +28,35 @@ export type SoupPin = {
   name: string;
   address: string;
   qty: Qty;
-  history: { at: string; qty: Qty }[];
+  history: { at: string; filedAt: string; qty: Qty; note: string }[];
 };
+
+export function clipNote(value: string) {
+  const clean = String(value ?? "")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/[\u0000-\u001f\u007f]/g, "");
+  return [...clean].slice(0, 50).join("");
+}
+
+export function asQty(qty: string): Qty | "" {
+  if (qty === "好多" || qty === "多貨") return "好多";
+  if (qty === "好少" || qty === "少量") return "好少";
+  if (qty === "冇晒" || qty === "無貨" || qty === "冇貨") return "冇晒";
+  return "";
+}
+
+export function qtyChipClass(qty: string) {
+  const value = asQty(qty);
+  if (value === "好多" || value === "") return "bg-moss text-cream";
+  if (value === "冇晒") return "bg-soup text-cream";
+  return "bg-yolk text-ink";
+}
+
+export function qtyPinClass(qty: Qty) {
+  if (qty === "好多") return "is-many";
+  if (qty === "冇晒") return "is-none";
+  return "is-few";
+}
 
 export function groupForBrand(brand: string) {
   return GROUPS.find((group) => (group.brands as readonly string[]).includes(brand)) ?? GROUPS[2];
@@ -59,7 +88,10 @@ export function formatWhen(iso: string) {
   return `${Number(pick("day"))}/${Number(pick("month"))} ${pick("hour")}:${pick("minute")}`;
 }
 
-export function rangeLabel(hours: number) {
-  if (hours < 48) return `${hours} 小時`;
-  return `${Math.round(hours / 24)} 日`;
+export const RANGE_STOPS = [10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 480, 720, 1440, 2880, 4320, 5760, 7200, 8640, 10080] as const;
+
+export function rangeLabel(minutes: number) {
+  if (minutes < 60) return `${minutes} 分鐘`;
+  if (minutes < 1440) return `${Math.round(minutes / 60)} 小時`;
+  return `${Math.round(minutes / 1440)} 日`;
 }

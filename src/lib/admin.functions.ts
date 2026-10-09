@@ -42,3 +42,15 @@ export const deskHide = createServerFn({ method: "POST" })
     const { setHidden } = await import("@/lib/admin-lock.server");
     await setHidden(String(data?.id ?? ""), Boolean(data?.hidden));
   });
+
+export const deskEdit = createServerFn({ method: "POST" })
+  .validator((input: { id: string; qty: string; note: string; at: string }) => input)
+  .handler(async ({ data }) => {
+    const { updateReport } = await import("@/lib/admin-lock.server");
+    await updateReport({
+      id: String(data?.id ?? ""),
+      qty: String(data?.qty ?? ""),
+      note: String(data?.note ?? ""),
+      at: String(data?.at ?? ""),
+    });
+  });

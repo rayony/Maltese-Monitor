@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Map as MlMap, Marker } from "maplibre-gl";
 import { loadLandsStyle } from "@/lib/lands-style";
 import type { SoupPin } from "@/lib/soup";
+import { qtyPinClass } from "@/lib/soup";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 type Focus = { lat: number; lng: number; token: number };
@@ -23,7 +24,17 @@ function esc(value: string) {
   });
 }
 
-function clusterPins(map: MlMap, pins: SoupPin[]): Cluster[] {
+function clusterTone(pins: SoupPin[]) {
+  const none = pins.filter((pin) => pin.qty === "冇晒").length;
+  const few = pins.filter((pin) => pin.qty === "好少").length;
+  const many = pins.length - none - few;
+  if (none >= few && none >= many) return "is-none";
+  if (few >= many) return "is-few";
+  return "is-many";
+}
+
+function clusterPins(map: MlMap, pins: SoupPin[], grouped: boolean): Cluster[] {
+  if (!grouped) return pins.map((pin) => ({ kind: "pin", pin }));
   const points = pins.map((pin) => {
     const projected = map.project([pin.lng, pin.lat]);
     return { pin, x: projected.x, y: projected.y };
@@ -73,11 +84,13 @@ export function HkMap({
   focus,
   draft,
   onPick,
+  cluster,
 }: {
   pins: SoupPin[];
   focus: Focus | null;
   draft: Spot | null;
   onPick: (lat: number, lng: number) => void;
+  cluster: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
@@ -85,6 +98,8 @@ export function HkMap({
   const draftMarker = useRef<Marker | null>(null);
   const pinsRef = useRef(pins);
   pinsRef.current = pins;
+  const clusterRef = useRef(cluster);
+  clusterRef.current = cluster;
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
   const [ready, setReady] = useState(false);
@@ -164,28 +179,32 @@ export function HkMap({
       const { Marker, Popup, LngLatBounds } = await import("maplibre-gl");
       if (cancelled || mapRef.current !== map) return;
       markers.current.forEach((marker) => marker.remove());
-      markers.current = clusterPins(map, pinsRef.current).map((item) => {
+      markers.current = clusterPins(map, pinsRef.current, clusterRef.current).map((item) => {
         if (item.kind === "pin") {
           const pin = item.pin;
           const button = document.createElement("button");
           button.type = "button";
-          button.className = `soup-pin ${pin.qty === "好多" ? "is-many" : "is-few"}`;
+          button.className = `soup-pin ${qtyPinClass(pin.qty)}`;
           button.setAttribute("aria-label", `${pin.brand} ${pin.name} ${pin.qty}`);
-          const lines = pin.history.map((row) => `${esc(row.at)} · ${esc(row.qty)}`).join("<br>");
+          const lines = pin.history
+            .map((row) => `${esc(row.at)} 目擊 · ${esc(row.filedAt)} 報 · ${esc(row.qty)}${row.note ? ` · ${esc(row.note)}` : ""}`)
+            .join("<br>");
           const popup = new Popup({ offset: 14, closeButton: false, className: "soup-popup", maxWidth: "240px" }).setHTML(
             `<strong>${esc(pin.brand)} ${esc(pin.name)}</strong><div>${esc(pin.address)}</div><div>${lines}</div>`,
           );
           return new Marker({ element: button, anchor: "center" }).setLngLat([pin.lng, pin.lat]).setPopup(popup).addTo(map);
         }
-        const many = item.pins.filter((pin) => pin.qty === "好多").length;
         const button = document.createElement("button");
         button.type = "button";
-        button.className = `soup-cluster ${many >= item.pins.length / 2 ? "is-many" : "is-few"}`;
+        button.className = `soup-cluster ${clusterTone(item.pins)}`;
         button.textContent = String(item.pins.length);
         button.setAttribute("aria-label", `附近 ${item.pins.length} 個舖`);
         const lines = item.pins
           .slice(0, 8)
-          .map((pin) => `${esc(pin.brand)} ${esc(pin.name)} · ${esc(pin.qty)}`)
+          .map((pin) => {
+            const extra = pin.history[0]?.note ? ` · ${esc(pin.history[0].note)}` : "";
+            return `${esc(pin.brand)} ${esc(pin.name)} · ${esc(pin.qty)}${extra}`;
+          })
           .join("<br>");
         const more = item.pins.length > 8 ? `<div>仲有 ${item.pins.length - 8} 個</div>` : "";
         const popup = new Popup({ offset: 16, closeButton: false, className: "soup-popup", maxWidth: "260px" }).setHTML(
@@ -211,7 +230,7 @@ export function HkMap({
       cancelled = true;
       map.off("moveend", onMove);
     };
-  }, [pins, ready]);
+  }, [pins, ready, cluster]);
 
   useEffect(() => {
     const map = mapRef.current;

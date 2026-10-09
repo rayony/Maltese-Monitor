@@ -6,6 +6,7 @@
   --color-cream: #fff6dc;
   --color-paper: #f4e6bf;
   --color-soup: #d64545;
+  --color-yolk: #e2b340;
   --color-moss: #3f7a4c;
   --shadow-stamp: 3px 3px 0 0 #2a2218;
 }
@@ -60,6 +61,11 @@
 }
 .soup-pin.is-few,
 .soup-cluster.is-few {
+  background: var(--color-yolk);
+  color: var(--color-ink);
+}
+.soup-pin.is-none,
+.soup-cluster.is-none {
   background: var(--color-soup);
 }
 .soup-pin.is-many {

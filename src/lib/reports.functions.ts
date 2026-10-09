@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import type { Qty, SoupReport } from "@/lib/soup";
+import { asQty, clipNote } from "@/lib/soup";
 
 const BRANDS = new Set(["百佳", "Taste", "Fusion", "惠康", "Market Place", "其他"]);
 
@@ -11,6 +12,7 @@ export type ReportInput = {
   lat: number;
   lng: number;
   qty: string;
+  note?: string;
   at: string;
 };
 
@@ -33,9 +35,11 @@ function parseReport(input: ReportInput) {
   const brand = String(input?.brand ?? "").trim();
   const name = String(input?.name ?? "").trim().slice(0, 80);
   const address = String(input?.address ?? "").trim().slice(0, 160);
-  const qty: Qty | "" = input?.qty === "好多" ? "好多" : input?.qty === "好少" || input?.qty === "少量" ? "好少" : "";
+  const qty: Qty | "" = asQty(String(input?.qty ?? ""));
   const lat = Number(input?.lat);
   const lng = Number(input?.lng);
+  const note = clipNote(String(input?.note ?? "")).trim();
+  if ([...note].length > 50) throw new Error("留言最多 50 個字");
   const at = new Date(String(input?.at ?? ""));
   if (!BRANDS.has(brand)) throw new Error("請揀超市品牌");
   if (!name) throw new Error("請填店舖");
@@ -53,6 +57,7 @@ function parseReport(input: ReportInput) {
     lat,
     lng,
     qty,
+    note,
     at: at.toISOString(),
   };
 }
@@ -65,7 +70,9 @@ function toReport(r: {
   lat: number;
   lng: number;
   qty: string;
+  note?: string | null;
   at: string | Date;
+  filedAt?: string | Date | null;
 }): SoupReport {
   return {
     id: String(r.id),
@@ -74,12 +81,14 @@ function toReport(r: {
     address: String(r.address),
     lat: asNum(r.lat),
     lng: asNum(r.lng),
-    qty: r.qty === "好少" || r.qty === "少量" ? "好少" : "好多",
+    qty: asQty(r.qty) || "好多",
+    note: clipNote(String(r.note ?? "")).trim(),
     at: asIso(r.at),
+    filedAt: asIso(r.filedAt ?? r.at),
   };
 }
 
-export const listReports = createServerFn({ method: "GET" }).handler(async () => {
+export async function listPublicReports() {
   const sql = await getSql();
   const rows = await sql<{
     id: string;
@@ -89,44 +98,43 @@ export const listReports = createServerFn({ method: "GET" }).handler(async () =>
     lat: number;
     lng: number;
     qty: string;
+    note: string | null;
     at: string | Date;
+    filed_at: string | Date | null;
   }>`
-    select id, brand, shop_name as name, address, lat, lng, qty, reported_at as at
+    select id, brand, shop_name as name, address, lat, lng, qty, note, reported_at as at, created_at as filed_at
     from soup_reports
     where reported_at >= now() - interval '7 days'
       and hidden_at is null
-    order by reported_at desc
+    order by reported_at desc, created_at desc
     limit 400
   `;
-  return rows.map(toReport);
-});
+  return rows.map((row) => toReport({ ...row, filedAt: row.filed_at }));
+}
+
+export async function createReport(input: ReportInput) {
+  const data = parseReport(input);
+  const sql = await getSql();
+  const id = crypto.randomUUID();
+  const inserted = await sql<{ created_at: string | Date }>`
+    insert into soup_reports (id, brand, shop_name, address, lat, lng, qty, note, reported_at)
+    values (${id}, ${data.brand}, ${data.name}, ${data.address}, ${data.lat}, ${data.lng}, ${data.qty}, ${data.note}, ${data.at})
+    returning created_at
+  `;
+  await sql`
+    delete from soup_reports
+    where id in (
+      select id from soup_reports
+      where brand = ${data.brand} and shop_name = ${data.name} and address = ${data.address}
+      order by reported_at desc
+      offset 5
+    )
+  `;
+  return { id, ...data, filedAt: asIso(inserted[0]?.created_at ?? new Date()) } satisfies SoupReport;
+}
+
+export const listReports = createServerFn({ method: "GET" }).handler(async () => listPublicReports());
 
 export const submitReport = createServerFn({ method: "POST" })
   .validator((input: ReportInput) => parseReport(input))
-  .handler(async ({ data }) => {
-    const sql = await getSql();
-    const id = crypto.randomUUID();
-    await sql`
-      insert into soup_reports (id, brand, shop_name, address, lat, lng, qty, reported_at)
-      values (${id}, ${data.brand}, ${data.name}, ${data.address}, ${data.lat}, ${data.lng}, ${data.qty}, ${data.at})
-    `;
-    await sql`
-      delete from soup_reports
-      where id in (
-        select id from soup_reports
-        where brand = ${data.brand} and shop_name = ${data.name} and address = ${data.address}
-        order by reported_at desc
-        offset 5
-      )
-    `;
-    return {
-      id,
-      brand: data.brand,
-      name: data.name,
-      address: data.address,
-      lat: data.lat,
-      lng: data.lng,
-      qty: data.qty,
-      at: data.at,
-    } satisfies SoupReport;
-  });
+  .handler(async ({ data }) => createReport(data));
