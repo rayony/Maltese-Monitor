@@ -24,6 +24,15 @@ function esc(value: string) {
   });
 }
 
+function mapsHref(label: string) {
+  return `https://www.google.com/maps?q=${encodeURIComponent(label)}`;
+}
+
+function entryHtml(row: { at: string; filedAt: string; qty: SoupPin["qty"]; note: string }) {
+  const note = row.note ? `<div class="soup-note">${esc(row.note)}</div>` : "";
+  return `<div class="soup-entry"><span class="soup-qty ${qtyPinClass(row.qty)}">${esc(row.qty)}</span><div class="soup-seen">目擊 ${esc(row.at)}</div><div class="soup-filed">報料 ${esc(row.filedAt)}</div>${note}</div>`;
+}
+
 function clusterTone(pins: SoupPin[]) {
   const none = pins.filter((pin) => pin.qty === "冇晒").length;
   const few = pins.filter((pin) => pin.qty === "好少").length;
@@ -79,18 +88,22 @@ function clusterPins(map: MlMap, pins: SoupPin[], grouped: boolean): Cluster[] {
   return clusters;
 }
 
+type Frame = { west: number; south: number; east: number; north: number; token: number };
+
 export function HkMap({
   pins,
   focus,
   draft,
   onPick,
   cluster,
+  frame,
 }: {
   pins: SoupPin[];
   focus: Focus | null;
   draft: Spot | null;
   onPick: (lat: number, lng: number) => void;
   cluster: boolean;
+  frame: Frame | null;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
@@ -186,11 +199,9 @@ export function HkMap({
           button.type = "button";
           button.className = `soup-pin ${qtyPinClass(pin.qty)}`;
           button.setAttribute("aria-label", `${pin.brand} ${pin.name} ${pin.qty}`);
-          const lines = pin.history
-            .map((row) => `${esc(row.at)} 目擊 · ${esc(row.filedAt)} 報 · ${esc(row.qty)}${row.note ? ` · ${esc(row.note)}` : ""}`)
-            .join("<br>");
-          const popup = new Popup({ offset: 14, closeButton: false, className: "soup-popup", maxWidth: "240px" }).setHTML(
-            `<strong>${esc(pin.brand)} ${esc(pin.name)}</strong><div>${esc(pin.address)}</div><div>${lines}</div>`,
+          const lines = pin.history.map((row) => entryHtml(row)).join("");
+          const popup = new Popup({ offset: 14, closeButton: false, className: "soup-popup", maxWidth: "280px" }).setHTML(
+            `<div class="soup-pop-name">${esc(pin.brand)} ${esc(pin.name)}</div><a class="soup-pop-addr" href="${mapsHref(`${pin.brand} ${pin.name} ${pin.address}`)}" target="_blank" rel="noopener noreferrer">${esc(pin.address)}</a>${lines}`,
           );
           return new Marker({ element: button, anchor: "center" }).setLngLat([pin.lng, pin.lat]).setPopup(popup).addTo(map);
         }
@@ -202,13 +213,15 @@ export function HkMap({
         const lines = item.pins
           .slice(0, 8)
           .map((pin) => {
-            const extra = pin.history[0]?.note ? ` · ${esc(pin.history[0].note)}` : "";
-            return `${esc(pin.brand)} ${esc(pin.name)} · ${esc(pin.qty)}${extra}`;
+            const latest = pin.history[0];
+            const extra = pin.history.length > 1 ? `<div class="soup-filed">同舖仲有 ${pin.history.length - 1} 條</div>` : "";
+            const body = latest ? `${entryHtml(latest)}${extra}` : "";
+            return `<div class="soup-entry"><div class="soup-pop-name">${esc(pin.brand)} ${esc(pin.name)}</div>${body}</div>`;
           })
-          .join("<br>");
+          .join("");
         const more = item.pins.length > 8 ? `<div>仲有 ${item.pins.length - 8} 個</div>` : "";
-        const popup = new Popup({ offset: 16, closeButton: false, className: "soup-popup", maxWidth: "260px" }).setHTML(
-          `<strong>附近 ${item.pins.length} 個</strong><div>${lines}</div>${more}`,
+        const popup = new Popup({ offset: 16, closeButton: false, className: "soup-popup", maxWidth: "280px" }).setHTML(
+          `<div class="soup-pop-name">附近 ${item.pins.length} 個</div>${lines}${more}`,
         );
         button.addEventListener("click", (event) => {
           event.stopPropagation();
@@ -269,6 +282,17 @@ export function HkMap({
     if (!ready || !focus || !mapRef.current) return;
     mapRef.current.flyTo({ center: [focus.lng, focus.lat], zoom: 15, essential: true });
   }, [focus, ready]);
+
+  useEffect(() => {
+    if (!ready || !frame || !mapRef.current) return;
+    mapRef.current.fitBounds(
+      [
+        [frame.west, frame.south],
+        [frame.east, frame.north],
+      ],
+      { padding: 28, duration: 450, maxZoom: 14 },
+    );
+  }, [frame, ready]);
 
   return (
     <div className="relative h-full min-h-80 bg-paper">

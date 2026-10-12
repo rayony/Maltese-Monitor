@@ -103,9 +103,64 @@
   border: 2px solid var(--color-ink);
   border-radius: 12px;
   box-shadow: var(--shadow-stamp);
-  padding: 8px 10px;
+  padding: 10px 12px;
   font-family: var(--font-sans);
+  line-height: 1.35;
+  max-height: 280px;
+  overflow: auto;
 }
 .soup-popup .maplibregl-popup-tip {
   border-top-color: var(--color-ink);
+}
+.soup-pop-name {
+  font-weight: 700;
+}
+.soup-pop-addr {
+  display: block;
+  margin-top: 2px;
+  color: inherit;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  opacity: 0.85;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.soup-entry + .soup-entry {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-ink);
+}
+.soup-qty {
+  display: inline-block;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-ink);
+  padding: 0 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.55;
+}
+.soup-qty.is-many {
+  background: var(--color-moss);
+  color: var(--color-cream);
+}
+.soup-qty.is-few {
+  background: var(--color-yolk);
+  color: var(--color-ink);
+}
+.soup-qty.is-none {
+  background: var(--color-soup);
+  color: var(--color-cream);
+}
+.soup-seen {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.soup-filed {
+  font-size: 0.7rem;
+  opacity: 0.62;
+}
+.soup-note {
+  margin-top: 4px;
+  font-size: 0.85rem;
 }

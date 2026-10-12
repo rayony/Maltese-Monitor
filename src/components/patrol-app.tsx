@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { HkMap } from "@/components/hk-map";
+import { DISTRICTS, HK_BOUNDS, REGIONS, boundsFor, districtOf, type DistrictId } from "@/data/districts";
 import { SHOPS } from "@/data/shops";
 import { listReports, submitReport } from "@/lib/reports.functions";
 import { GROUPS, RANGE_STOPS, clipNote, formatWhen, groupForBrand, inferBrand, placeKey, qtyChipClass, rangeLabel, type GroupId, type Qty, type SoupPin, type SoupReport } from "@/lib/soup";
@@ -18,6 +19,29 @@ function cleanName(brand: string, text: string) {
   const escaped = brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const rest = text.replace(new RegExp(`^${escaped}\\s+`, "i"), "").trim();
   return rest || text;
+}
+
+function loadDistricts(): DistrictId[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem("soup-districts");
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const known = new Set(DISTRICTS.map((district) => district.id));
+    return parsed.filter((id): id is DistrictId => typeof id === "string" && known.has(id as DistrictId));
+  } catch {
+    return [];
+  }
+}
+
+function districtSummary(ids: DistrictId[]) {
+  if (!ids.length || ids.length === DISTRICTS.length) return "全港";
+  for (const region of REGIONS) {
+    if (region.districts.length === ids.length && region.districts.every((id) => ids.includes(id))) return region.label;
+  }
+  if (ids.length === 1) return DISTRICTS.find((district) => district.id === ids[0])?.name ?? "地區";
+  return `${ids.length} 區`;
 }
 
 function messageOf(error: unknown) {
@@ -38,15 +62,23 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
   const [shown, setShown] = useState<Record<Qty, boolean>>({ 好多: true, 好少: true, 冇晒: true });
   const [mapGroups, setMapGroups] = useState<Record<GroupId, boolean>>({ park: true, well: true, other: true });
   const [cluster, setCluster] = useState(true);
+  const [districts, setDistricts] = useState<DistrictId[]>([]);
+  const [areaOpen, setAreaOpen] = useState(false);
+  const [frame, setFrame] = useState<{ west: number; south: number; east: number; north: number; token: number } | null>(null);
   const [status, setStatus] = useState("揀舖，再撳地圖或者拖粒空心釘。");
   const [pending, setPending] = useState(false);
   const [focus, setFocus] = useState<Focus | null>(null);
   const box = useRef<HTMLDivElement>(null);
+  const areaBox = useRef<HTMLDivElement>(null);
   const mapFrame = useRef<HTMLElement>(null);
   const group = GROUPS.find((item) => item.id === groupId) ?? GROUPS[0];
 
   useEffect(() => {
-    setWhen(nowLocal());
+    const saved = loadDistricts();
+    if (!saved.length) return;
+    setDistricts(saved);
+    const bounds = boundsFor(saved);
+    if (bounds) setFrame({ ...bounds, token: Date.now() });
   }, []);
 
   useEffect(() => {
@@ -60,7 +92,11 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
 
   useEffect(() => {
     function onPointer(event: PointerEvent) {
-      if (!(event.target instanceof Node) || !box.current?.contains(event.target)) setOpen(false);
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (box.current?.contains(target) || areaBox.current?.contains(target)) return;
+      setOpen(false);
+      setAreaOpen(false);
     }
     document.addEventListener("pointerdown", onPointer);
     return () => document.removeEventListener("pointerdown", onPointer);
@@ -81,9 +117,10 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
   const visible = useMemo(() => {
     const cut = Date.now() - minutes * 60 * 1000;
     return reports
-      .filter((row) => new Date(row.at).getTime() >= cut && mapGroups[groupForBrand(row.brand).id])
+      .filter((row) => new Date(row.at).getTime() >= cut && mapGroups[groupForBrand(row.brand).id] && shown[row.qty])
+      .filter((row) => !districts.length || districts.includes(districtOf(row.lat, row.lng) as DistrictId))
       .sort((a, b) => b.at.localeCompare(a.at) || b.filedAt.localeCompare(a.filedAt));
-  }, [reports, minutes, mapGroups]);
+  }, [reports, minutes, mapGroups, districts, shown]);
 
   const pins = useMemo(() => {
     const groups = new Map<string, SoupReport[]>();
@@ -109,8 +146,17 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
         history: top.map((row) => ({ at: formatWhen(row.at), filedAt: formatWhen(row.filedAt), qty: row.qty, note: row.note })),
       });
     }
-    return next.filter((pin) => shown[pin.qty]);
-  }, [visible, shown]);
+    return next;
+  }, [visible]);
+
+  function chooseDistricts(next: DistrictId[]) {
+    const known = new Set(DISTRICTS.map((district) => district.id));
+    const clean = next.filter((id) => known.has(id));
+    setDistricts(clean);
+    window.localStorage.setItem("soup-districts", JSON.stringify(clean));
+    const bounds = clean.length ? boundsFor(clean) : HK_BOUNDS;
+    if (bounds) setFrame({ ...bounds, token: Date.now() });
+  }
 
   function jumpTo(row: SoupReport) {
     setFocus({ lat: row.lat, lng: row.lng, token: Date.now() });
@@ -174,7 +220,7 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
       return;
     }
     if (!when) {
-      setStatus("請填時間");
+      setStatus("請填目擊時間");
       return;
     }
     setPending(true);
@@ -193,6 +239,7 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
       });
       setReports(await listReports());
       setNote("");
+      setWhen("");
       setFocus({ lat: picked.lat, lng: picked.lng, token: Date.now() });
       setStatus("已記錄。每個舖只留最新 5 條。");
     } catch (error) {
@@ -208,6 +255,29 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
         <h1 className="sr-only">金寶湯糾察</h1>
         <img src="/og.jpg" alt="金寶湯糾察" className="block h-auto max-h-[42vh] w-auto max-w-full" />
       </header>
+      <p className="border-b-2 border-ink px-4 py-2 text-xs leading-relaxed text-ink/80">
+        非官方數據，地圖根據公開資料並綜合各方網上消息及匿名回報，只求希望有心人尋獲小狗，如有問題請多多包涵 - Gary.TC
+        <span className="mt-1 block">
+          詳情請參考
+          <a
+            href="https://www.facebook.com/share/1MCNJTc3h6/?mibextid=wwXIfr"
+            target="_blank"
+            rel="noreferrer"
+            className="font-bold underline underline-offset-2"
+          >
+            金寶湯官方 Facebook
+          </a>
+          。官方地址（非即時更新）：
+          <a
+            href="https://docs.google.com/document/d/1utbUxE3w15LOii3FxsbG2Q34GuGM6keUolN_V07po4I/edit?usp=sharing"
+            target="_blank"
+            rel="noreferrer"
+            className="font-bold underline underline-offset-2"
+          >
+            【金寶湯｜線條小狗 4罐禮品裝】分店列表
+          </a>
+        </span>
+      </p>
       <div className="flex items-center gap-3 px-4 py-2">
         <label htmlFor="range" className="shrink-0 text-sm font-bold">
           範圍 {rangeLabel(minutes)}
@@ -253,6 +323,63 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
             {label}
           </label>
         ))}
+        <div ref={areaBox} className="relative basis-full">
+          <button
+            type="button"
+            aria-expanded={areaOpen}
+            className="flex min-h-11 w-full items-center justify-between rounded-xl border-2 border-ink bg-cream px-3 text-left text-sm font-bold"
+            onClick={() => setAreaOpen((current) => !current)}
+          >
+            地區 · {districtSummary(districts)}
+            <span aria-hidden="true">{areaOpen ? "▴" : "▾"}</span>
+          </button>
+          {areaOpen ? (
+            <div className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-xl border-2 border-ink bg-cream p-2 shadow-stamp">
+              <button type="button" className="min-h-11 w-full rounded-lg px-2 text-left text-sm font-bold" onClick={() => chooseDistricts([])}>
+                全港
+              </button>
+              {REGIONS.map((region) => {
+                const on = region.districts.every((id) => districts.includes(id));
+                return (
+                  <div key={region.id} className="mt-1">
+                    <label className="flex min-h-11 items-center gap-2 px-2 text-sm font-bold">
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-ink"
+                        checked={on}
+                        onChange={() =>
+                          chooseDistricts(
+                            on
+                              ? districts.filter((id) => !region.districts.includes(id))
+                              : [...new Set([...districts, ...region.districts])],
+                          )
+                        }
+                      />
+                      {region.label}
+                    </label>
+                    {region.districts.map((id) => {
+                      const district = DISTRICTS.find((item) => item.id === id);
+                      if (!district) return null;
+                      return (
+                        <label key={id} className="flex min-h-11 items-center gap-2 px-6 text-sm">
+                          <input
+                            type="checkbox"
+                            className="size-4 accent-ink"
+                            checked={districts.includes(id)}
+                            onChange={() =>
+                              chooseDistricts(districts.includes(id) ? districts.filter((item) => item !== id) : [...districts, id])
+                            }
+                          />
+                          {district.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
         {(
           [
             ["好多", "多貨", "bg-moss"],
@@ -405,12 +532,13 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
                     className="w-full rounded-xl border-2 border-ink bg-paper px-3 py-2 text-left text-sm"
                     onClick={() => jumpTo(row)}
                   >
-                    <span className={`mr-2 inline-block rounded-full px-2 py-0.5 text-xs ${qtyChipClass(row.qty)}`}>
-                      {row.qty}
+                    <span className="font-bold">
+                      {row.brand} {row.name}
                     </span>
-                    {row.brand} {row.name}
+                    <span className={`ml-2 inline-block rounded-full px-2 py-0.5 text-xs ${qtyChipClass(row.qty)}`}>{row.qty}</span>
                     {row.note ? <span className="mt-1 block">{row.note}</span> : null}
-                    <span className="mt-1 block text-ink/70">目擊 {formatWhen(row.at)} · 報料 {formatWhen(row.filedAt)}</span>
+                    <span className="mt-1 block text-xs font-bold">目擊 {formatWhen(row.at)}</span>
+                    <span className="block text-[11px] text-ink/60">報料 {formatWhen(row.filedAt)}</span>
                   </button>
                 </li>
               ))}
@@ -418,7 +546,7 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
             </ul>
         </section>
         <section ref={mapFrame} className="relative order-1 h-96 overflow-hidden rounded-2xl border-2 border-ink shadow-stamp lg:order-2 lg:h-full lg:min-h-0">
-          <HkMap pins={pins} focus={focus} draft={picked} onPick={pinAt} cluster={cluster} />
+          <HkMap pins={pins} focus={focus} draft={picked} onPick={pinAt} cluster={cluster} frame={frame} />
           <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-xl border-2 border-ink bg-cream px-3 py-2 text-xs shadow-stamp">
             <span className="mr-1 inline-block size-2.5 rounded-full bg-moss" />
             好多
