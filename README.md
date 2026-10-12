@@ -28,9 +28,10 @@
 
 ## Credits
 
-**應用程式製作人Gary.TC ([rayony](https://github.com/rayony))
-- 靈感來源 [Maltese.hk](https://www.instagram.com/maltese.hk/)**
-- 地圖圖磚：香港特別行政區政府地政總署。顯示時用佢指定嘅字句：「地圖由地政總署提供」／「Map from Lands Department」。畫圖用 [MapLibre GL JS](https://maplibre.org/)（BSD-3-Clause）。
+- 應用程式製作人：[Gary.TC](https://github.com/rayony)
+- 靈感來源：[Maltese.hk](https://www.instagram.com/maltese.hk/)
+- 地圖圖磚：香港特別行政區政府地政總署。顯示時用佢指定嘅字句：「地圖由地政總署提供」／「Map from Lands Department」。
+- 畫圖用 [MapLibre GL JS](https://maplibre.org/)（BSD-3-Clause）。
 - 界面同程式由 [Grok](https://grok.com) 協助整
 - 線條小狗原作者：[https://www.instagram.com/moonlab_studio/] 
 
