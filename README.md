@@ -6,6 +6,7 @@
 即刻試用：[maltese-gumboton.grok.me](https://maltese-gumboton.grok.me/)
 
 活動詳情請參考金寶湯官方Facebook [https://www.facebook.com/100069856033663/posts/1461128022892385/?mibextid=wwXIfr&rdid=ISPKlix7ntfGjlsH#]
+
 如有問題敬請通知及多多包涵 - Gary.TC
 
 <p align="center">
