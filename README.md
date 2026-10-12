@@ -1,8 +1,12 @@
-# 金寶湯糾察
+# 金寶湯糾察: 線條小狗x金寶湯聯乘版資源地圖
 
-香港超市金寶湯現場報料。綠點係好多，黃點係好少，紅點係冇晒。揀舖或者自己喺地圖釘低位置，公開紀錄，唔使登入。
+非官方現場報料 Web App。地圖上綠點代表係好多貨，黃點係好少，紅點係冇晒。
+可以淨係睇或者幫手回報，打地址揀舖或者自己喺地圖釘低位置，再報時間同數量，唔使登入。
 
-而家公開嘅網站：[maltese-gumboton.grok.me](https://maltese-gumboton.grok.me/)
+即刻試用：[maltese-gumboton.grok.me](https://maltese-gumboton.grok.me/)
+
+活動詳情請參考金寶湯官方Facebook [https://www.facebook.com/100069856033663/posts/1461128022892385/?mibextid=wwXIfr&rdid=ISPKlix7ntfGjlsH#]
+如有問題敬請通知及多多包涵 - Gary.TC
 
 <p align="center">
   <img src="public/og.jpg" alt="金寶湯糾察" width="640">
@@ -19,26 +23,14 @@
 
 交報料：`POST /api/reports`，JSON 欄位係 `brand`、`name`、`address`、`lat`、`lng`、`qty`（好多／好少／冇晒，亦接受多貨／少量／無貨）、`note`、`at`（目擊時間，ISO）。`GET /api/reports` 讀返近 7 日、未隱藏嘅報料。
 
-管理員頁係 `/desk`。密碼只以 scrypt 雜湊加 salt 存喺資料庫，登入維持 12 小時。可以改數量、留言、目擊時間，或者隱藏一條。
+管理員頁係 `/desk`。登入後可以改數量、留言、目擊時間，或者隱藏一條。
 
-詳情請參考 [金寶湯官方 Facebook](https://www.facebook.com/share/1MCNJTc3h6/?mibextid=wwXIfr)。
-
-官方地址（非即時更新）：[【金寶湯｜線條小狗 4罐禮品裝】分店列表](https://docs.google.com/document/d/1utbUxE3w15LOii3FxsbG2Q34GuGM6keUolN_V07po4I/edit?usp=sharing)。
-
-## 本機先跑到
-
-```bash
-npm ci
-npm run dev
-```
-
-開本機預覽。冇設 `DATABASE_URL` 時資料留喺記憶體，重新開程序會清。正式環境先設 `DATABASE_URL`。
 
 ## Credits
 
-**Gary.TC**（[rayony](https://github.com/rayony)）
+**Produced by Gary.TC（[rayony](https://github.com/rayony), inspired by Maltese.hk**
 
-- 地圖圖磚：香港特別行政區政府地政總署。顯示時用佢指定嘅字句：「地圖由地政總署提供」／「Map from Lands Department」。畫圖用 [MapLibre GL JS](https://maplibre.org/)（BSD-3-Clause）。冇用 Leaflet。
+- 地圖圖磚：香港特別行政區政府地政總署。顯示時用佢指定嘅字句：「地圖由地政總署提供」／「Map from Lands Department」。畫圖用 [MapLibre GL JS](https://maplibre.org/)（BSD-3-Clause）。
 - 界面同程式由 [Grok](https://grok.com) 協助整
 
 ## License
