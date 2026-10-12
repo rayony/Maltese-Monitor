@@ -28,7 +28,7 @@
 
 ## Credits
 
-**Produced by Gary.TC（[rayony](https://github.com/rayony), inspired by Maltese.hk**
+**Produced by Gary.TC ([rayony](https://github.com/rayony)), inspired by Maltese.hk**
 
 - 地圖圖磚：香港特別行政區政府地政總署。顯示時用佢指定嘅字句：「地圖由地政總署提供」／「Map from Lands Department」。畫圖用 [MapLibre GL JS](https://maplibre.org/)（BSD-3-Clause）。
 - 界面同程式由 [Grok](https://grok.com) 協助整
