@@ -3,8 +3,6 @@
 非官方現場報料 Web App。地圖上綠點代表係好多貨，黃點係好少，紅點係冇晒。
 可以淨係睇或者幫手回報，打地址揀舖或者自己喺地圖釘低位置，再報時間同數量，唔使登入。
 
-即刻試用：[maltese-gumboton.grok.me](https://maltese-gumboton.grok.me/)
-
 活動詳情請參考金寶湯官方Facebook [https://www.facebook.com/100069856033663/posts/1461128022892385/?mibextid=wwXIfr&rdid=ISPKlix7ntfGjlsH#]
 
 如有問題敬請通知及多多包涵 - Gary.TC
@@ -15,6 +13,7 @@
 
 ## 點用
 
+- 即刻試用：[maltese-gumboton.grok.me](https://maltese-gumboton.grok.me/)
 - 時間滑桿跟**目擊時間**，由 10 分鐘到 7 日，預設 1 日。報料時間只係顯示交表嗰刻。
 - 頂部可剔品牌組（百佳／惠康／其他）、顏色、同埋合併附近釘。
 - 地區可以多選。揀咗之後地圖會框住嗰幾區，選擇記喺瀏覽器。
