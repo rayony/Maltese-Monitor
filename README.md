@@ -21,17 +21,9 @@
 
 管理員頁係 `/desk`。密碼只以 scrypt 雜湊加 salt 存喺資料庫，登入維持 12 小時。可以改數量、留言、目擊時間，或者隱藏一條。
 
-## GitHub Pages 跑唔到
+詳情請參考 [金寶湯官方 Facebook](https://www.facebook.com/share/1MCNJTc3h6/?mibextid=wwXIfr)。
 
-**唔係。** 開 `https://rayony.github.io/Maltese-Monitor/` 唔會係個可用嘅糾察。
-
-GitHub Pages 只會派靜態檔。呢個 app 係 TanStack Start：
-
-- 報料要寫入 Postgres（正式環境係 Neon；本機冇 `DATABASE_URL` 就用內嵌 PGLite）
-- 清單、提交、管理員頁 `/desk` 都係伺服器功能
-- 地圖要個 Node 程序先渲染到
-
-所以 Pages 上面唔會有資料庫，報料都交唔到。而家用緊嘅版本，請用上面個公開網站。
+官方地址（非即時更新）：[【金寶湯｜線條小狗 4罐禮品裝】分店列表](https://docs.google.com/document/d/1utbUxE3w15LOii3FxsbG2Q34GuGM6keUolN_V07po4I/edit?usp=sharing)。
 
 ## 本機先跑到
 
@@ -46,9 +38,11 @@ npm run dev
 
 **Gary.TC**（[rayony](https://github.com/rayony)）
 
-- 地圖：香港特別行政區政府地政總署 WGS84 矢量圖，用 [MapLibre GL](https://maplibre.org/) 顯示
+- 地圖圖磚：香港特別行政區政府地政總署。顯示時用佢指定嘅字句：「地圖由地政總署提供」／「Map from Lands Department」。畫圖用 [MapLibre GL JS](https://maplibre.org/)（BSD-3-Clause）。冇用 Leaflet。
 - 界面同程式由 [Grok](https://grok.com) 協助整
 
 ## License
 
-未另發授權。地圖資料跟地政總署嘅使用條款，唔屬於呢個 repo。
+程式、自己寫嘅文字同界面用 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)。歡迎非商業再用，但要註明 **Gary.TC**。
+
+地圖圖磚同區界唔喺呢個授權入面，版權仍然係香港特別行政區政府。唔好把它當成可以轉授或者當係自己嘅地圖。地政總署 Map API 要求地圖上面見到「Map from Lands Department」，並保留地政總署標誌。資料只供參考，政府冇保證準確，亦唔負責使用上嘅損失。詳見 [CSDI Map API 說明](https://portal.csdi.gov.hk/csdi-webpage/apidoc/ImageryMapAPI) 同 [免責聲明](https://api.portal.hkmapservice.gov.hk/disclaimer)（2026-07-08 修訂）。

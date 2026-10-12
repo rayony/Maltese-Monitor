@@ -25,7 +25,7 @@ export async function loadLandsStyle(): Promise<StyleSpecification> {
         tiles: [`${BASE}/basemap/WGS84/tile/{z}/{y}/{x}.pbf`],
         minzoom: 0,
         maxzoom: 15,
-        attribution: "© 地政總署 Lands Department",
+        attribution: "地圖由地政總署提供 / Map from Lands Department",
       },
       labels: {
         type: "vector",

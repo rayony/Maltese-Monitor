@@ -554,7 +554,7 @@ export function PatrolApp({ initialReports }: { initialReports: SoupReport[] }) 
             好少
             <span className="mr-1 ml-3 inline-block size-2.5 rounded-full bg-soup" />
             冇晒
-            <div className="mt-1 text-ink/70">地圖：地政總署</div>
+            <div className="mt-1 text-ink/70">地圖由地政總署提供</div>
           </div>
         </section>
       </div>
